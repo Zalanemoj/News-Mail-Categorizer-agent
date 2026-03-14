@@ -1,0 +1,780 @@
+{
+  "name": "News Mail System",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 20
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -432,
+        -16
+      ],
+      "id": "74b29d55-e5dd-4521-b91f-87f448f6ee58",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything?q=AI OR finance OR politics&language=en&pageSize=100&sortBy=publishedAt&apiKey=4abf047a4c9a42e688f4340972623567",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        -208,
+        -16
+      ],
+      "id": "b296e745-243a-43de-99f6-3ddd8b29902b",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Classify this news article.\n\nTitle: {{$json.title}}\n\nDescription: {{$json.description}}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a strict news classifier.\n\nThe user only cares about news related to:\n- Artificial Intelligence\n- Finance\n- Politics\n\nClassify the article into one of these categories:\n\nAI\nFinance\nPolitics\nIrrelevant\n\nRules:\n- If the article belongs to AI, Finance, or Politics → relevant = true\n- If not → relevant = false\n- Always return valid JSON matching the schema\n- Do not include explanations\n- Do not include markdown",
+          "batching": {
+            "batchSize": 2
+          }
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        272,
+        -16
+      ],
+      "id": "fc529462-fce8-431a-a297-29ae5ba313e2",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "articles",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        16,
+        -16
+      ],
+      "id": "26b21e52-7d6b-43e8-89d1-dd381a8c385c",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        240,
+        208
+      ],
+      "id": "5aefd893-9cd8-4888-a374-f3d2f9c8c930",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "8CgWepWZe6Ammt86",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": {\n      \"type\": \"string\"\n    },\n    \"relevant\": {\n      \"type\": \"boolean\"\n    }\n  },\n  \"required\": [\"category\", \"relevant\"]\n}",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        368,
+        208
+      ],
+      "id": "6c520b33-5091-4601-820a-3ed2536d0f2d",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "81dab9d5-b224-4283-8bec-99a732a8d748",
+              "leftValue": "={{ $json.relevant }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        960,
+        -16
+      ],
+      "id": "5046e434-4a52-4858-b8e6-8d83709555fb",
+      "name": "Filter"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0bd91fa3-3879-4d2c-98a7-d4ed685c3d2a",
+              "name": "category",
+              "value": "={{ $json.output.category }}",
+              "type": "string"
+            },
+            {
+              "id": "24075a0b-dbe3-4a35-b08e-821936a623d6",
+              "name": "relevant",
+              "value": "={{ $json.output.relevant }}",
+              "type": "boolean"
+            },
+            {
+              "id": "d95e6fc1-f350-462f-9220-31e56d713869",
+              "name": "title",
+              "value": "={{ $('Split Out').item.json.title }}",
+              "type": "string"
+            },
+            {
+              "id": "ecf34d4b-3d83-48fc-94cc-bbe011dacaa8",
+              "name": "description",
+              "value": "={{ $('Split Out').item.json.description }}",
+              "type": "string"
+            },
+            {
+              "id": "03e55243-1d2d-4883-a2c9-7252ec65a297",
+              "name": "",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        736,
+        -16
+      ],
+      "id": "0b554f13-c78a-43d0-85ee-8ef35c714299",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "sendTo": "zalanemoj777@gmail.com",
+        "subject": "Todays News---AI",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        -208
+      ],
+      "id": "5aeba168-17bd-4645-9151-a4ebc879969d",
+      "name": "Send a message",
+      "webhookId": "2c131465-dcf9-4ad1-971f-351431690da7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RjhOvKyJT22B9TvT",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            },
+            {
+              "fieldToAggregate": "description"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -208
+      ],
+      "id": "777e047e-19dd-48c8-851c-7cd7bdcfe946",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "const titles = $json.title || [];\nconst descriptions = $json.description || [];\n\nlet html = `\n<h2>📰 Today's News</h2>\n<hr>\n`;\n\nfor (let i = 0; i < titles.length; i++) {\n\n  html += `\n  <p>\n  <b>${i+1}. ${titles[i]}</b><br>\n  ${descriptions[i] || \"\"}\n  </p>\n  `;\n}\n\nreturn [\n  {\n    json: {\n      message: html\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        -208
+      ],
+      "id": "0c498001-71ee-4e6b-bbf0-cf8079509628",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "6872d5d9-b582-4a3b-9e6e-33e7926f8ece",
+              "leftValue": "={{ $json.category }}",
+              "rightValue": "AI",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -208
+      ],
+      "id": "1f33724b-a9e1-4fb9-87f6-2818836f7a7a",
+      "name": "Filter1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "effce924-7965-421b-b68f-e35d398487c0",
+              "leftValue": "={{ $json.category }}",
+              "rightValue": "Finance",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        -16
+      ],
+      "id": "aae68d13-12c6-45c8-a5e4-ceee998c87ba",
+      "name": "Filter2"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "a04cf421-8fe4-405f-b13c-9c2a9d75c0bc",
+              "leftValue": "={{ $json.category }}",
+              "rightValue": "Politics",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1184,
+        176
+      ],
+      "id": "a3182a79-91d0-41d7-905f-19671cfb8efe",
+      "name": "Filter3"
+    },
+    {
+      "parameters": {
+        "sendTo": "zalanemoj777@gmail.com",
+        "subject": "Todays News---Finance",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        -16
+      ],
+      "id": "b3c4fc0a-51f7-41b4-bbf8-5fbf117865c0",
+      "name": "Send a message1",
+      "webhookId": "2c131465-dcf9-4ad1-971f-351431690da7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RjhOvKyJT22B9TvT",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            },
+            {
+              "fieldToAggregate": "description"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        -16
+      ],
+      "id": "cf29cc5f-a69c-4dd1-b4ea-6386ec32e46e",
+      "name": "Aggregate1"
+    },
+    {
+      "parameters": {
+        "jsCode": "const titles = $json.title || [];\nconst descriptions = $json.description || [];\n\nlet html = `\n<h2>📰 Today's News</h2>\n<hr>\n`;\n\nfor (let i = 0; i < titles.length; i++) {\n\n  html += `\n  <p>\n  <b>${i+1}. ${titles[i]}</b><br>\n  ${descriptions[i] || \"\"}\n  </p>\n  `;\n}\n\nreturn [\n  {\n    json: {\n      message: html\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        -16
+      ],
+      "id": "9e9c2595-6af7-4fbd-a80e-94e5aee720a3",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "sendTo": "zalanemoj777@gmail.com",
+        "subject": "Todays News---Politics",
+        "message": "={{ $json.message }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2080,
+        176
+      ],
+      "id": "e5935106-511e-44ad-aaa7-165794f03c40",
+      "name": "Send a message2",
+      "webhookId": "2c131465-dcf9-4ad1-971f-351431690da7",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "RjhOvKyJT22B9TvT",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const titles = $json.title || [];\nconst descriptions = $json.description || [];\n\nlet html = `\n<h2>📰 Today's News</h2>\n<hr>\n`;\n\nfor (let i = 0; i < titles.length; i++) {\n\n  html += `\n  <p>\n  <b>${i+1}. ${titles[i]}</b><br>\n  ${descriptions[i] || \"\"}\n  </p>\n  `;\n}\n\nreturn [\n  {\n    json: {\n      message: html\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1856,
+        176
+      ],
+      "id": "66f7206f-57a2-42ac-9ac6-87164a21650a",
+      "name": "Code in JavaScript2"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        448,
+        416
+      ],
+      "id": "8397a640-f479-4bbe-ba9a-80a16781e051",
+      "name": "Groq Chat Model",
+      "credentials": {
+        "groqApi": {
+          "id": "I0UFHiDlMSf4gO1H",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "maxItems": 10
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        -208
+      ],
+      "id": "6f7080b3-44cf-4bc5-90de-a8fcff460d94",
+      "name": "Limit"
+    },
+    {
+      "parameters": {
+        "maxItems": 10
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        -16
+      ],
+      "id": "04c775dc-8621-49af-a3e0-5083e24af0ad",
+      "name": "Limit1"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "title"
+            },
+            {
+              "fieldToAggregate": "description"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1632,
+        176
+      ],
+      "id": "a59092ae-9a4b-4dda-8050-7e738b940d04",
+      "name": "Aggregate2"
+    },
+    {
+      "parameters": {
+        "maxItems": 10
+      },
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        1408,
+        176
+      ],
+      "id": "19f5d217-31d0-415c-8bbe-a0a3e2ca5a7a",
+      "name": "Limit2"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Edit Fields",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Fields": {
+      "main": [
+        [
+          {
+            "node": "Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter": {
+      "main": [
+        [
+          {
+            "node": "Filter1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Filter3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter1": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate1": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Send a message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "Send a message2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter2": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter3": {
+      "main": [
+        [
+          {
+            "node": "Limit2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Structured Output Parser",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate2": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "baf06277-2f6d-483f-b054-4771474c0d56",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "f50e7f950578f0767f2a48c7d69f7db958708b518bc2142a215a297ef96054ce"
+  },
+  "id": "i9R27Y5tFZHYJxbj",
+  "tags": []
+}
